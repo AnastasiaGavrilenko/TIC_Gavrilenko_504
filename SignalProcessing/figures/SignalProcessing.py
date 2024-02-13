@@ -1,10 +1,14 @@
 import numpy as np
-mean = 0  # середній розподіл
-std_deviation = 10  # стандартне відхилення розподілу
-num_elements = 100  # кількість згенерованих елементів
+# Генерація випадкового сигналу
+mean = 0
+std_deviation = 10
+n = 500  # Довжина сигналу у відліках
+Fs = 1000  # Частота дискретизації
 
-# Генеруємо випадковий сигнал
-random_signal = np.random.normal(mean, std_deviation, num_elements)
+# Генерація випадкового сигналу
+random_signal = np.random.normal(mean, std_deviation, n)
+# Визначення відліків часу
+time_values = np.arange(n) / Fs
 
 # Результат
-print("Генерування випадкового сигналу:", random_signal)
+print("Відліки часу:", time_values)
