@@ -1,4 +1,7 @@
+from typing import Any
+
 import numpy as np
+from numpy import ndarray, dtype
 from scipy import signal, fft
 import matplotlib.pyplot as plt
 import os
@@ -64,3 +67,35 @@ plot_signal(
     font_size_spectrum,
     save_path=spectrum_save_path
 )
+
+# Дискретизація сигналу з кроками Dt = 2, 4, 8, 16
+Dt_values = [2, 4, 8, 16]
+discrete_signals = []
+
+for Dt in Dt_values:
+    discrete_signal = np.zeros(n)
+
+    for i in range(0, round(n / Dt)):
+        discrete_signal[i * Dt] = filtered_signal[i * Dt]
+
+    discrete_signals.append(list(discrete_signal))
+
+# Відображення результатів
+fig, ax = plt.subplots(2, 2, figsize=(21 / 2.54, 14 / 2.54))
+fig.suptitle("Сигнал з кроком дискретизації Dt = (2, 4, 8, 16)", fontsize=14)
+
+s = 0
+for i in range(0, 2):
+    for j in range(0, 2):
+        ax[i][j].plot(range(n), discrete_signals[s], linewidth=1)
+        s += 1
+
+fig.supxlabel("Час (секунди)", fontsize=14)
+fig.supylabel("Амплітуда сигналу", fontsize=14)
+
+# Збереження зображення
+figure_dir = "./figures"
+os.makedirs(figure_dir, exist_ok=True)
+discrete_signals_save_path = os.path.join(figure_dir, "discrete_signals.png")
+fig.savefig(discrete_signals_save_path, dpi=600)
+print(f"Графіки дискретизованих сигналів збережено за шляхом {discrete_signals_save_path}")
