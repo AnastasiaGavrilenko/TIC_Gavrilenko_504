@@ -7,6 +7,7 @@ import os
 Fs = 1000  # Частота дискретизації
 F_filter = 12  # Полоса пропускання фільтру
 n = 500  # Довжина сигналу у відліках
+F_max = 5  # Максимальна частота сигналу
 
 # Генерація випадкового сигналу
 mean = 0
@@ -15,7 +16,7 @@ random_signal = np.random.normal(mean, std_deviation, n)
 
 # Визначення параметрів фільтру
 order = 3  # Порядок фільтру
-w = F_filter / (Fs / 2)  # Нормалізована частота зрізу
+w = F_filter / (Fs / 2)
 
 # Фільтрація сигналу
 filtered_signal = signal.sosfiltfilt(signal.butter(order, w, 'low', output='sos'), random_signal)
@@ -166,3 +167,143 @@ plt.ylabel('Співвідношення сигнал-шум')
 plt.grid(True)
 plt.savefig(os.path.join(f'./figures/signal-shum_vid_discretyzacii.png'), dpi=600)
 plt.show()
+
+# Розрахунок рівнів квантування
+M = 16
+delta = (np.max(filtered_signal) - np.min(filtered_signal)) / (M - 1)
+quantized_signal = delta * np.floor(filtered_signal / delta)
+quantize_levels = np.arange(np.min(quantized_signal), np.max(quantized_signal)+delta, delta)
+bits_required = int(np.ceil(np.log2(M)))
+quantize_bits = [format(i, '0' + str(bits_required) + 'b') for i in range(M)]
+
+# Створення таблиці квантування
+quantize_table = np.c_[quantize_levels, quantize_bits]
+
+# Відображення таблиці квантування у вигляді рисунку
+fig, ax = plt.subplots(figsize=(8, 6))  # Змініть розмір за потребою
+ax.axis('tight')
+ax.axis('off')
+table = ax.table(cellText=quantize_table, colLabels=['Значення сигналу', 'Кодова послідовність'], loc='center')
+plt.show()
+
+fig.savefig(os.path.join(f'./figures/Таблиця квантування для 4 рівня.png'), dpi=600)
+
+# Розрахунок квантованих сигналів та бітових послідовностей
+M = 4  # Кількість рівнів квантування
+delta = (np.max(filtered_signal) - np.min(filtered_signal)) / (M - 1)
+quantized_signal = delta * np.floor(filtered_signal / delta)
+quantize_levels = np.linspace(np.min(filtered_signal), np.max(filtered_signal), M)
+quantize_bits = [format(i, '0' + str(int(np.log2(M))) + 'b') for i in range(M)]
+
+# Визначення бітових послідовностей для квантованого сигналу
+bits_sequence = []
+for value in quantized_signal:
+    index = np.argmin(np.abs(quantize_levels - value))
+    bits_sequence.append(quantize_bits[index])
+
+# Об'єднання бітових послідовностей у єдиний масив
+bits = ''.join(bits_sequence)
+bits_array = np.array([int(bit) for bit in bits])
+
+# Створення графіку бітових послідовностей
+fig, ax = plt.subplots(figsize=(21/2.54, 14/2.54))
+ax.step(range(len(bits_array)), bits_array, where='post', linewidth=0.5)
+ax.set_xlabel('Біти')
+ax.set_ylabel('Амплітуда')
+ax.set_title(f'Кодова послідовність сигналу при кількості рівнів квантування {M}')
+plt.show()
+
+figures_directory = './figures'
+os.makedirs(figures_directory, exist_ok=True)
+fig.savefig(os.path.join(figures_directory, f'bit_sequence_quantization_{M}_levels.png'), dpi=300)
+plt.close(fig)
+
+# Визначаємо функцію для квантування сигналу
+def quantize_signal(signal, num_levels):
+    min_val, max_val = np.min(signal), np.max(signal)
+    quantized_levels = np.linspace(min_val, max_val, num_levels)
+    quantized_signal = np.digitize(signal, quantized_levels, right=True) - 1
+    quantized_signal = quantized_levels[quantized_signal]
+    return quantized_signal
+
+# Функція для розрахунку дисперсії та співвідношення сигнал-шум
+def calculate_variance_and_snr(signal, quantized_signal):
+    noise = signal - quantized_signal
+    variance = np.var(noise)
+    snr = 10 * np.log10(np.var(signal) / variance)
+    return variance, snr
+
+# Цикл для квантування сигналу та розрахунку дисперсії та співвідношення сигнал-шум
+variances = []
+snr_values = []
+M_values = [4, 16, 64, 256]
+quantized_signals = []
+
+for M in M_values:
+    quantized_signal = quantize_signal(filtered_signal, M)
+    quantized_signals.append(quantized_signal)
+    variance, snr = calculate_variance_and_snr(filtered_signal, quantized_signal)
+    variances.append(variance)
+    snr_values.append(snr)
+
+# Побудова графіків цифрових сигналів
+fig, axs = plt.subplots(2, 2, figsize=(14, 10))
+axs = axs.flatten()
+for i, M in enumerate(M_values):
+    axs[i].step(t, quantized_signals[i], where='post')
+    axs[i].set_title(f'Цифровий сигнал з рівнями квантування {M}')
+    axs[i].set_xlabel('Час (секунди)')
+    axs[i].set_ylabel('Амплітуда сигналу')
+plt.tight_layout()
+plt.savefig(os.path.join(figures_directory, 'Цифрові сигнали з рівнями квантування.png'), dpi=300)
+plt.close(fig)
+
+# Побудова і збереження графіка залежності дисперсії
+plt.figure(figsize=(10, 6))
+plt.plot(M_values, variances, marker='o')
+plt.title('Залежність дисперсії від кількості рівнів квантування')
+plt.xlabel('Кількість рівнів квантування')
+plt.ylabel('Дисперсія')
+plt.grid(True)
+plt.savefig(os.path.join(figures_directory, 'Залежність дисперсії від рівнів квантування.png'), dpi=300)
+plt.close()
+
+# Побудова і збереження графіка залежності співвідношення сигнал-шум
+plt.figure(figsize=(10, 6))
+plt.plot(M_values, snr_values, marker='o')
+plt.title('Залежність співвідношення сигнал-шум від кількості рівнів квантування')
+plt.xlabel('Кількість рівнів квантування')
+plt.ylabel('Співвідношення сигнал-шум (дБ)')
+plt.grid(True)
+plt.savefig(os.path.join(figures_directory, 'Залежність співвід. сигнал-шум від квантування.png'), dpi=300)
+plt.close()
+
+
+# Функція для створення і збереження таблиці квантування
+def create_and_save_quantization_table(M, signal, figures_directory):
+    # Розрахунок рівнів квантування
+    quantization_step = (np.max(signal) - np.min(signal)) / (M - 1)
+    quantized_levels = np.linspace(np.min(signal), np.max(signal), M)
+
+    # Розрахунок бітових послідовностей
+    bits_required = int(np.ceil(np.log2(M)))
+    quantize_bits = [format(i, '0' + str(bits_required) + 'b') for i in range(M)]
+
+    # Створення таблиці квантування
+    quantization_table = np.c_[quantized_levels, quantize_bits]
+
+    # Візуалізація та збереження таблиці
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.axis('off')
+    table = ax.table(cellText=quantization_table, colLabels=['Рівень', 'Біти'], loc='center')
+    table.auto_set_font_size(False)
+    table.set_fontsize(10)
+    table.scale(1, 1.5)
+
+    plt.savefig(os.path.join(figures_directory, f'Таблиці квантування з рівнями {M}.png'), dpi=300)
+    plt.close(fig)
+
+
+# Створення та збереження таблиць квантування для кожного M
+for M in [16, 64, 256]:
+    create_and_save_quantization_table(M, filtered_signal, figures_directory)
